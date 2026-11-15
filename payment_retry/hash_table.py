@@ -37,6 +37,8 @@ class ChainedHashTable(Generic[V]):
         return len(self._buckets)
 
     def __getitem__(self, key: str) -> V:
+        # A hash picks the bucket. Two IDs can land in the same bucket,
+        # so compare their full strings to find the requested entry.
         for stored_key, value in self._buckets[self._hasher(key) % self.capacity]:
             if stored_key == key:
                 return value
@@ -53,8 +55,11 @@ class ChainedHashTable(Generic[V]):
         bucket = self._buckets[self._hasher(key) % self.capacity]
         for index, (stored_key, _) in enumerate(bucket):
             if stored_key == key:
+                # The ID already has a slot. Updating it keeps the size the same.
                 bucket[index] = (key, value)
                 return
+        # With eight buckets, six keys fit at the 75% limit. The seventh
+        # triggers a resize, so look up its bucket again before inserting.
         if (self._size + 1) * 4 > self.capacity * 3:
             self._resize(self.capacity * 2)
             bucket = self._buckets[self._hasher(key) % self.capacity]
@@ -65,10 +70,13 @@ class ChainedHashTable(Generic[V]):
         bucket = self._buckets[self._hasher(key) % self.capacity]
         for index, (stored_key, _) in enumerate(bucket):
             if stored_key == key:
-                # Chain order has no meaning, so avoid shifting the suffix.
+                # Fill the gap with the bucket's last pair. Lookups search by
+                # ID, so moving this pair leaves the other keys accessible.
                 bucket[index] = bucket[-1]
                 bucket.pop()
                 self._size -= 1
+                # Shrink once the key count falls below 20% of the bucket
+                # count. One deletion just after growth won't undo it.
                 if self.capacity > self.MIN_CAPACITY and self._size * 5 < self.capacity:
                     self._resize(max(self.MIN_CAPACITY, self.capacity // 2))
                 return
@@ -81,6 +89,8 @@ class ChainedHashTable(Generic[V]):
 
     def _resize(self, capacity: int) -> None:
         replacement: list[list[tuple[str, V]]] = [[] for _ in range(capacity)]
+        # The bucket number depends on capacity. Redistribute every key
+        # but keep its value pointing to the same heap entry.
         for key, value in self.items():
             replacement[self._hasher(key) % capacity].append((key, value))
         self._buckets = replacement
@@ -88,6 +98,8 @@ class ChainedHashTable(Generic[V]):
     def assert_valid(self) -> None:
         """Expensive diagnostic; never included in operation timings."""
         assert self.capacity >= self.MIN_CAPACITY
+        # Starting at eight and always doubling or halving keeps capacity
+        # a power of two. Such a number has exactly one bit set.
         assert self.capacity & (self.capacity - 1) == 0
         keys = set()
         for index, bucket in enumerate(self._buckets):

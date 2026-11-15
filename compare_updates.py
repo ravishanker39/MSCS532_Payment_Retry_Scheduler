@@ -10,6 +10,8 @@ def run_comparison() -> tuple[list[tuple[int, int, int]], list[str]]:
     # A lazy heap appends each revision. The dictionary identifies the live one.
     lazy_heap: list[tuple[int, int, int, str]] = []
     latest: dict[str, int] = {}
+    # Give both queues the same 32 jobs in the same arrival order. This
+    # makes any later difference in entry counts traceable to the updates.
     for arrival in range(32):
         job_id = f"job-{arrival:02}"
         indexed.schedule(job_id, 100 + arrival)
@@ -21,6 +23,8 @@ def run_comparison() -> tuple[list[tuple[int, int, int]], list[str]]:
         # Move the same entry from one end of the ordering to the other.
         deadline = 10 if revision % 2 else 200
         indexed.reschedule("job-00", deadline)
+        # The indexed queue moved its existing entry. The lazy queue keeps
+        # its older entry and pushes a new one with the same arrival order.
         latest["job-00"] = revision
         heappush(lazy_heap, (deadline, 0, revision, "job-00"))
         if revision in (1, 100, 1000):
@@ -29,10 +33,14 @@ def run_comparison() -> tuple[list[tuple[int, int, int]], list[str]]:
     order = []
     while lazy_heap:
         _, _, revision, job_id = heappop(lazy_heap)
+        # Several popped entries may name job-00. Only its latest revision
+        # belongs in the output, even if an older deadline comes up first.
         if latest.get(job_id) == revision:
             order.append(job_id)
             del latest[job_id]
     indexed_order = []
+    # At 200 ms every live job is due. Compare the complete dispatch order
+    # as well as its length so a missing or out-of-order job is caught.
     while (job := indexed.pop_due(200)) is not None:
         indexed_order.append(job.job_id)
     if indexed_order != order or len(order) != 32:

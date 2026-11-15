@@ -12,6 +12,8 @@ class RetryWorker:
 
     def schedule(self, job_id: str, due_at_ms: int) -> RetryJob:
         """Accept a new ID only when there is no pending or active copy."""
+        # Claiming a job removes it from the queue's ID table. Check the
+        # worker's active slot too before accepting the same ID again.
         if self._active is not None and self._active.job_id == job_id:
             raise ValueError(f"job already active: {job_id}")
         return self._pending.schedule(job_id, due_at_ms)
@@ -30,11 +32,14 @@ class RetryWorker:
         """Claim one eligible attempt. Resolve it before claiming another."""
         if self._active is not None:
             raise RuntimeError("worker already has an active attempt")
+        # Move a due job into the worker's slot. When nothing is due,
+        # pop_due returns None and the worker stays available.
         self._active = self._pending.pop_due(now_ms)
         return self._active
 
     def _match_active(self, token: int) -> RetryJob:
-        # Reusing a job ID is legitimate. Only the matching attempt may finish.
+        # In the demo, both attempts are called A. Their tokens are 0 and 3.
+        # A reply carrying 0 must leave attempt 3 available to finish.
         job = self._active
         if type(token) is not int or job is None or job.sequence != token:
             raise ValueError("unknown or stale attempt")
@@ -42,6 +47,8 @@ class RetryWorker:
 
     def acknowledge(self, token: int) -> RetryJob:
         """Record simulated success and free the worker."""
+        # Check the token before clearing the slot. A late reply raises
+        # an error here while the current attempt stays active.
         job = self._match_active(token)
         self._active = None
         return job
@@ -49,7 +56,8 @@ class RetryWorker:
     def retry_at(self, token: int, due_at_ms: int) -> RetryJob:
         """Return a failed attempt to the pending queue as a fresh arrival."""
         job = self._match_active(token)
-        # Enqueue first. An invalid deadline leaves the current attempt active.
+        # Scheduling gives this retry a new token and a new place in line.
+        # If its deadline is invalid, the old attempt is still in the slot.
         replacement = self._pending.schedule(job.job_id, due_at_ms)
         self._active = None
         return replacement

@@ -9,6 +9,8 @@ def main() -> None:
     worker.schedule("B", 20)
     worker.schedule("C", 15)
     print("Pending B:", worker.lookup_pending("B").due_at_ms, "ms")
+    # Move A ahead of B and remove C. The first eligible time is now 10 ms,
+    # so the poll at 9 ms should leave all pending jobs in place.
     print("Move A earlier:", worker.reschedule_pending("A", 10).due_at_ms, "ms")
     print("Cancel before dispatch:", worker.cancel_pending("C").job_id)
     print("Claim at 9 ms:", worker.claim_due(9))
@@ -16,6 +18,8 @@ def main() -> None:
     first = worker.claim_due(10)
     assert first is not None
     print(f"Claim at 10 ms: {first.job_id}, token {first.sequence}")
+    # Simulate A failing. Hold on to its first token so a late reply can
+    # be replayed after the replacement attempt starts.
     retry = worker.retry_at(first.sequence, 20)
     print(f"Requeue A at {retry.due_at_ms} ms, token {retry.sequence}")
 
@@ -26,6 +30,8 @@ def main() -> None:
     last = worker.claim_due(20)
     assert last is not None
     print(f"Next at 20 ms: {last.job_id}, token {last.sequence}")
+    # Both replies concern job A. Send the old token first, then the current
+    # token to show that rejecting the first reply still lets A finish.
     try:
         worker.acknowledge(first.sequence)
     except ValueError as exc:

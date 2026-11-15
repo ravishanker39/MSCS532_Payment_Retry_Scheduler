@@ -28,6 +28,8 @@ class _Entry:
 
     @property
     def priority(self) -> tuple[int, int]:
+        # Compare the deadline first. When two deadlines match, the job
+        # with the smaller arrival sequence gets the first turn.
         return self.job.due_at_ms, self.job.sequence
 
 
@@ -63,6 +65,8 @@ class RetryScheduler:
         self._validate_time(due_at_ms)
         if job_id in self._by_id:
             raise ValueError(f"job already pending: {job_id}")
+        # The new entry starts at the end of the heap. Store that same
+        # entry under its ID so later deadline changes can find it directly.
         job = RetryJob(job_id, due_at_ms, self._next_sequence)
         entry = _Entry(job, len(self._heap))
         self._heap.append(entry)
@@ -84,6 +88,8 @@ class RetryScheduler:
         self._validate_id(job_id)
         self._validate_time(due_at_ms)
         entry = self._by_id[job_id]
+        # Keep the original sequence when changing the deadline. Otherwise
+        # editing a waiting job could send it to the back of a tie.
         entry.job = replace(entry.job, due_at_ms=due_at_ms)
         self._repair(entry.position)
         return entry.job
@@ -96,6 +102,8 @@ class RetryScheduler:
     def pop_due(self, now_ms: int) -> RetryJob | None:
         """Remove one eligible job; leave future jobs queued."""
         self._validate_time(now_ms)
+        # The root has the earliest deadline. If even that job is in the
+        # future, all jobs must wait. A deadline equal to now is eligible.
         if not self._heap or self._heap[0].job.due_at_ms > now_ms:
             return None
         return self._remove_at(0)
@@ -110,6 +118,8 @@ class RetryScheduler:
     def _sift_up(self, index: int) -> None:
         while index:
             parent = (index - 1) // 2
+            # An earlier job trades places with its parent. Once the parent
+            # already comes first, the job is high enough in the heap.
             if self._heap[parent].priority <= self._heap[index].priority:
                 break
             self._swap(parent, index)
@@ -119,6 +129,8 @@ class RetryScheduler:
         size = len(self._heap)
         while 2 * index + 1 < size:
             child = 2 * index + 1
+            # Start with the left child. If the right child is due sooner,
+            # promote it instead so both children still follow their parent.
             if child + 1 < size and self._heap[child + 1].priority < self._heap[child].priority:
                 child += 1
             if self._heap[index].priority <= self._heap[child].priority:
@@ -138,7 +150,8 @@ class RetryScheduler:
         removed = self._heap[index]
         last = self._heap.pop()
         del self._by_id[removed.job.job_id]
-        # If the removed entry was already last, there is no hole to fill.
+        # Use the last entry to fill the gap, then restore heap order from
+        # that slot. Removing the last entry itself leaves no gap.
         if index < len(self._heap):
             self._heap[index] = last
             last.position = index
@@ -151,6 +164,8 @@ class RetryScheduler:
         self._by_id.assert_valid()
         assert len(self._heap) == len(self._by_id)
         for index, entry in enumerate(self._heap):
+            # Looking up any heap entry by ID must lead back to this exact
+            # object and slot. Otherwise cancelling that ID could remove a neighbor.
             assert entry.position == index
             assert self._by_id[entry.job.job_id] is entry
             if index:

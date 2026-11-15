@@ -1,0 +1,11 @@
+Pending B: 20 ms
+Move A earlier: 10 ms
+Cancel before dispatch: C
+Claim at 9 ms: None
+Claim at 10 ms: A, token 0
+Requeue A at 20 ms, token 3
+First at 20 ms: B
+Next at 20 ms: A, token 3
+Late acknowledgment: unknown or stale attempt
+Acknowledge current attempt: A
+Final claim: None

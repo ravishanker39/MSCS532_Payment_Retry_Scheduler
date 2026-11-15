@@ -1,0 +1,20 @@
+test_all_keys_collide (test_scheduler.HashTableTests.test_all_keys_collide) ... ok
+test_growth_shrink_overwrite_and_missing (test_scheduler.HashTableTests.test_growth_shrink_overwrite_and_missing) ... ok
+test_cancel_root_interior_and_last (test_scheduler.SchedulerTests.test_cancel_root_interior_and_last) ... ok
+test_deadline_changes_both_directions (test_scheduler.SchedulerTests.test_deadline_changes_both_directions) ... ok
+test_empty_and_deadline_boundary (test_scheduler.SchedulerTests.test_empty_and_deadline_boundary) ... ok
+test_invalid_and_duplicate_requests_preserve_state (test_scheduler.SchedulerTests.test_invalid_and_duplicate_requests_preserve_state) ... ok
+test_model_based_operation_sequences (test_scheduler.SchedulerTests.test_model_based_operation_sequences) ... ok
+test_public_job_cannot_mutate_priority (test_scheduler.SchedulerTests.test_public_job_cannot_mutate_priority) ... ok
+test_stable_ties_reschedule_and_reuse (test_scheduler.SchedulerTests.test_stable_ties_reschedule_and_reuse) ... ok
+test_failure_rejoins_tie_as_new_arrival (test_worker.WorkerTests.test_failure_rejoins_tie_as_new_arrival) ... ok
+test_gate_at_deadline_and_busy_worker (test_worker.WorkerTests.test_gate_at_deadline_and_busy_worker) ... ok
+test_indexed_and_lazy_heaps_agree_after_update_burst (test_worker.WorkerTests.test_indexed_and_lazy_heaps_agree_after_update_burst) ... ok
+test_invalid_retry_preserves_active_attempt (test_worker.WorkerTests.test_invalid_retry_preserves_active_attempt) ... ok
+test_lookup_cancel_and_reschedule_before_claim (test_worker.WorkerTests.test_lookup_cancel_and_reschedule_before_claim) ... ok
+test_stale_ack_and_retry_leave_current_attempt_active (test_worker.WorkerTests.test_stale_ack_and_retry_leave_current_attempt_active) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.225s
+
+OK
